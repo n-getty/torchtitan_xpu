@@ -1,0 +1,24 @@
+Traceback (most recent call last):
+  File "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/torchtitan/train.py", line 20, in <module>
+    import torchtitan.protocols.train_spec as train_spec_module
+  File "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/torchtitan/__init__.py", line 10, in <module>
+Traceback (most recent call last):
+  File "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/torchtitan/train.py", line 20, in <module>
+    import torchtitan.protocols.train_spec as train_spec_module
+  File "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/torchtitan/__init__.py", line 10, in <module>
+    import torchtitan.components.quantization  # noqa: F401
+  File "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/torchtitan/components/quantization/__init__.py", line 20, in <module>
+    import torchtitan.components.quantization  # noqa: F401
+  File "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/torchtitan/components/quantization/__init__.py", line 20, in <module>
+    from torchtitan.config import JobConfig
+  File "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/torchtitan/config/__init__.py", line 33, in <module>
+    from torchtitan.config import JobConfig
+  File "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/torchtitan/config/__init__.py", line 33, in <module>
+    from .manager import ConfigManager
+  File "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/torchtitan/config/manager.py", line 14, in <module>
+    from .manager import ConfigManager
+  File "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/torchtitan/config/manager.py", line 14, in <module>
+    import tyro
+ModuleNotFoundError: No module named 'tyro'
+    import tyro
+ModuleNotFoundError: No module named 'tyro'

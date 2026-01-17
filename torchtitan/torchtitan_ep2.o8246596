@@ -1,0 +1,8 @@
+Using Python: /opt/aurora/25.190.0/spack/unified/0.10.1/install/linux-sles15-x86_64/gcc-13.3.0/python-venv-1.0-bdxpu45/bin/python3
+Master Address: x4502c7s0b0n0
+RANK: 0, WORLD_SIZE: 2, MASTER: x4502c7s0b0n0:29507
+PALS_RANKID=0
+PALS_SIZE=None
+PALS_LOCAL_RANKID=0
+PALS_LOCAL_SIZE=2
+PMIX_RANK=0

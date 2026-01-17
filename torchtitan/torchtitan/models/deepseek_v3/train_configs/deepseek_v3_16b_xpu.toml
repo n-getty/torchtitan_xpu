@@ -1,0 +1,81 @@
+# DeepSeek-V3 16B XPU Training Configuration
+# Adapted for Intel XPU with flex_attention and torch.compile disabled
+
+[job]
+dump_folder = "./outputs_xpu"
+description = "DeepSeek-V3 16B XPU training test"
+print_config = false
+
+[profiling]
+enable_profiling = false
+save_traces_folder = "profile_trace"
+profile_freq = 10
+enable_memory_snapshot = false
+save_memory_snapshot_folder = "memory_snapshot"
+
+[metrics]
+log_freq = 1
+disable_color_printing = false
+enable_tensorboard = false
+save_tb_folder = "tb"
+enable_wandb = false
+
+[model]
+name = "deepseek_v3"
+flavor = "16B"
+# Use debugmodel for faster initial testing
+# flavor = "debugmodel"
+hf_assets_path = "./assets/hf/deepseek-moe-16b-base"
+# Note: flex_attention is not available on XPU, model will use SDPA internally
+
+[optimizer]
+name = "AdamW"
+lr = 2.2e-4
+eps = 1e-8
+
+[lr_scheduler]
+warmup_steps = 5
+decay_ratio = 0.8
+decay_type = "cosine"
+min_lr_factor = 0.1
+
+[training]
+local_batch_size = 1       # Small batch for initial testing
+seq_len = 512              # Reduced sequence length for testing
+max_norm = 1.0
+steps = 5                  # Just 5 steps for initial testing
+dataset = "c4_test"        # Use small test dataset
+
+[parallelism]
+data_parallel_replicate_degree = 1
+data_parallel_shard_degree = -1
+fsdp_reshard_after_forward = "default"
+tensor_parallel_degree = 1
+enable_async_tensor_parallel = false
+pipeline_parallel_degree = 1
+pipeline_parallel_schedule = "Interleaved1F1B"
+expert_parallel_degree = 1  # Start with EP=1 for single-node test
+expert_tensor_parallel_degree = 1
+
+[checkpoint]
+enable = false
+folder = "checkpoint"
+interval = 10
+last_save_model_only = true
+export_dtype = "float32"
+async_mode = "disabled"
+
+[activation_checkpoint]
+mode = "none"  # Disable for initial testing
+
+[compile]
+enable = false  # CRITICAL: Disabled for XPU compatibility
+components = []
+
+[quantize.linear.float8]
+enable_fsdp_float8_all_gather = false
+precompute_float8_dynamic_scale_for_fsdp = false
+filter_fqns = ["output", "router.gate"]
+
+[quantize.grouped_mm.float8]
+fqns = ["experts"]

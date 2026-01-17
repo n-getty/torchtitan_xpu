@@ -1,0 +1,55 @@
+# @package _global_
+
+# Top-level config for Llama 4 training on XPU with EP=12 (Triton Disabled)
+# For use with 12 GPUs (e.g. 1 node with 12 tiles)
+
+[job]
+dump_folder = "./outputs_llama4_xpu_fallback"
+description = "Llama 4 EP=12 benchmark on XPU (Fallback MoE)"
+
+[profiling]
+enable_profiling = false
+save_traces_folder = "profile_trace"
+profile_freq = 100
+
+[metrics]
+log_freq = 1
+enable_tensorboard = true
+save_tb_folder = "tb"
+
+[model]
+name = "llama4"
+flavor = "debugmodel_12_rank"
+tokenizer_path = "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/tests/assets/tokenizer"
+use_triton_moe = false
+
+[optimizer]
+name = "AdamW"
+lr = 3e-4
+
+[training]
+local_batch_size = 12
+seq_len = 512
+max_norm = 1.0
+steps = 20
+mixed_precision_param = "bfloat16"
+mixed_precision_reduce = "float32"
+
+dataset = "c4_test"
+dataset_path = "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/tests/assets/c4_test"
+
+[lr_scheduler]
+warmup_steps = 2
+
+[activation_checkpoint]
+mode = "none"
+
+[parallelism]
+# EP=12, DP=12 (FSDP across 12 ranks, with EP=12)
+data_parallel_replicate_degree = 1
+data_parallel_shard_degree = 12
+tensor_parallel_degree = 1
+expert_parallel_degree = 12
+pipeline_parallel_degree = 1
+
+expert_parallel_comm_backend = "standard"

@@ -1,0 +1,26 @@
+__pycache__/
+*.egg-info/
+build/
+dist/
+logs/
+outputs/
+torch_extensions*/
+*.log
+.DS_Store
+.idea/
+.vscode/
+
+# Artifacts
+brain/
+*.md
+
+# Editor temp
+*.swp
+*.swo
+
+# torchtitan specific
+torchtitan/data/
+torchtitan/out/
+torchtitan/wandb/
+torchtitan/assets/hf/*
+torchtitan/assets/tokenizer/*
