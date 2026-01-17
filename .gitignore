@@ -12,7 +12,6 @@ torch_extensions*/
 
 # Artifacts
 brain/
-*.md
 
 # Editor temp
 *.swp
