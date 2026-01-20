@@ -92,6 +92,26 @@ case $CONFIG in
         $MPIEXEC -n 12 -ppn 12 --envall $PYTHON_EXE -u $BASE_DIR/mpi_train_wrapper.py \
             --job.config_file $BASE_DIR/torchtitan/models/llama4/train_configs/llama4_large_dense_equivalent_xpu.toml
         ;;
+    llama3_8b_sam)
+        echo "Running Llama3 8B (Sam's config) benchmark..."
+        $MPIEXEC -n 12 -ppn 12 --envall $PYTHON_EXE -u $BASE_DIR/mpi_train_wrapper.py \
+            --job.config_file $BASE_DIR/torchtitan/models/llama4/train_configs/llama_8b_sam.toml
+        ;;
+    llama4_ep12_8k)
+        echo "Running Llama4 Large EP=12 8k Tokens/Rank benchmark..."
+        $MPIEXEC -n 12 -ppn 12 --envall $PYTHON_EXE -u $BASE_DIR/mpi_train_wrapper.py \
+            --job.config_file $BASE_DIR/torchtitan/models/llama4/train_configs/llama4_large_ep12_8k_xpu.toml
+        ;;
+    llama4_noep_8k)
+        echo "Running Llama4 Large MoE (No EP) 8k Tokens/Rank benchmark..."
+        $MPIEXEC -n 12 -ppn 12 --envall $PYTHON_EXE -u $BASE_DIR/mpi_train_wrapper.py \
+            --job.config_file $BASE_DIR/torchtitan/models/llama4/train_configs/llama4_large_moe_noep_8k_xpu.toml
+        ;;
+    llama4_hsdp_ep6_8k)
+        echo "Running Llama4 Large HSDP EP=6 8k Tokens/Rank benchmark..."
+        $MPIEXEC -n 12 -ppn 12 --envall $PYTHON_EXE -u $BASE_DIR/mpi_train_wrapper.py \
+            --job.config_file $BASE_DIR/torchtitan/models/llama4/train_configs/llama4_large_hsdp_ep6_8k_xpu.toml
+        ;;
     *)
         echo "Unknown config: $CONFIG"
         exit 1

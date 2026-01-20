@@ -42,7 +42,7 @@ def _apply_layer_sac(module: nn.Module, ac_config: ACConfig) -> nn.Module:
             module,
             preserve_rng_state=ac_config.preserve_rng_state,
             determinism_check=ac_config.determinism_check,
-            early_stop=ac_config.early_stop,
+            # # early_stop=ac_config.early_stop,
             debug=ac_config.debug,
         )
     else:
@@ -132,7 +132,7 @@ def _apply_op_sac(
         context_fn=selective_checkpointing_context_fn,
         preserve_rng_state=ac_config.preserve_rng_state,
         determinism_check=ac_config.determinism_check,
-        early_stop=ac_config.early_stop,
+        # early_stop=ac_config.early_stop,
         debug=ac_config.debug,
     )
 
@@ -151,7 +151,7 @@ def _apply_full_ac(module: nn.Module, ac_config: ACConfig) -> nn.Module:
         module,
         preserve_rng_state=ac_config.preserve_rng_state,
         determinism_check=ac_config.determinism_check,
-        early_stop=ac_config.early_stop,
+        # early_stop=ac_config.early_stop,
         debug=ac_config.debug,
     )
 

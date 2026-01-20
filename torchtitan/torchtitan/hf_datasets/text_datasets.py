@@ -40,7 +40,7 @@ DATASETS = {
         sample_processor=_process_c4_text,
     ),
     "c4_test": DatasetConfig(
-        path="tests/assets/c4_test",
+        path="torchtitan/tests/assets/c4_test",
         loader=lambda path: load_dataset(path, split="train"),
         sample_processor=_process_c4_text,
     ),

@@ -414,8 +414,14 @@ def apply_fsdp(
             _experts_shard_placement_fn = None
             assert edp_mesh is not None
             assert hasattr(transformer_block, "moe")
+            # Workaround for "Cannot create a submesh from a submesh" error
+            efsdp_size = 1
+            if "efsdp" in edp_mesh.mesh_dim_names:
+                efsdp_idx = edp_mesh.mesh_dim_names.index("efsdp")
+                efsdp_size = edp_mesh.size(efsdp_idx)
+
             if (
-                edp_mesh["efsdp"].size() * ep_degree
+                efsdp_size * ep_degree
                 > transformer_block.moe.experts.num_experts
             ):
                 _experts_shard_placement_fn = lambda param: Shard(1)

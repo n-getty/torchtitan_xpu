@@ -289,3 +289,35 @@ mpiexec -n 4 python scripts/test_xpu_ep_ops.py
 - Implement fused `all_to_all` kernel for XCCL
 - Optimize `all_gather` with async prefetching
 - Support Expert Tensor Parallelism (ETP)
+
+## High MFU Validation (8k Tokens/Rank)
+
+To validate the environment's capability to reach high MFU comparable to Llama 3 8B baselines (~23-26%), we benchmarked Llama 4 MoE configurations at high arithmetic intensity using a cached local dataset (to bypass streaming latency).
+
+### Results Comparison
+
+| Configuration | Batch | Seq | Tokens/Rank | AC Mode | Status | MFU | Memory |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Llama 3 8B (Baseline)** | 4 | 2048 | 8,192 | **Selective** | Success | **26.22%** | 58 GB |
+| **Llama 4 MoE (No EP)** | 4 | 2048 | 8,192 | **Full** | Success | **15.18%** | 50.1 GB |
+| **Llama 4 MoE (HSDP EP=6)** | 4 | 2048 | 8,192 | **Full** | Success | **15.44%** | **44.7 GB** |
+| **Llama 4 MoE (EP=12)** | 4 | 2048 | 8,192 | Full | **Failed** | N/A | OOM |
+
+### Analysis
+
+1.  **Llama 3 8B Performance (26%):** The high MFU is enabled by **Selective Activation Checkpointing (AC)**, which minimizes recomputation overhead. The jump from 23% (initial) to 26% is due to running longer (120 steps vs 10) and using a **cached local dataset** which eliminated dataloading latency.
+2.  **Llama 4 MoE Bottleneck (15%):** The MoE model (~50B params) is too large to fit in XPU memory with Selective AC at this batch size. We were forced to use **Full AC**, which requires re-running the forward pass during backprop. This massive compute overhead caps the MFU at ~15%.
+3.  **EP vs No-EP Convergence:** Unlike low-batch runs where EP was 2.6x faster, at high batch sizes/Full AC, the performance converges. The system becomes compute-bound (by AC recomputation), making the communication efficiency of EP less impactful than the raw compute cost.
+4.  **HSDP Efficiency:** Hybrid Sharded Data Parallel (HSDP) with EP=6 (Replicate=2) successfully reduced memory usage to **44.7 GB** (vs 50 GB for No-EP), preventing the OOM seen with EP=12.
+
+### Critical Fixes Needed
+
+To run these benchmarks, several code fixes were applied:
+
+1.  **Activation Checkpointing (`activation_checkpoint.py`):**
+    *   **Problem:** `TypeError: wrapper() got an unexpected keyword argument 'early_stop'`
+    *   **Fix:** Patched `torchtitan/distributed/activation_checkpoint.py` to remove the `early_stop` argument from `ptd_checkpoint_wrapper` calls, as it's not supported in the installed PyTorch version.
+
+2.  **HSDP Mesh Slicing (`parallelize.py`):**
+    *   **Problem:** `RuntimeError: Cannot create a submesh from a submesh` when using HSDP meshes.
+    *   **Fix:** Patched `torchtitan/models/llama4/infra/parallelize.py` to avoid slicing the mesh object directly for size checks. Instead, looking up the dimension index and using `mesh.size(idx)`.
