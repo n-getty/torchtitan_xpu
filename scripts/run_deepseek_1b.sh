@@ -112,6 +112,16 @@ case $CONFIG in
         $MPIEXEC -n 12 -ppn 12 --envall $PYTHON_EXE -u $BASE_DIR/mpi_train_wrapper.py \
             --job.config_file $BASE_DIR/torchtitan/models/llama4/train_configs/llama4_large_hsdp_ep6_8k_xpu.toml
         ;;
+    llama4_dense_8k)
+        echo "Running Llama4 Large Dense Equivalent 8k Tokens/Rank Full AC benchmark..."
+        $MPIEXEC -n 12 -ppn 12 --envall $PYTHON_EXE -u $BASE_DIR/mpi_train_wrapper.py \
+            --job.config_file $BASE_DIR/torchtitan/models/llama4/train_configs/llama4_large_dense_equivalent_8k_xpu.toml
+        ;;
+    llama4_dense_4k)
+        echo "Running Llama4 Large Dense Equivalent 4k Tokens/Rank Full AC benchmark..."
+        $MPIEXEC -n 12 -ppn 12 --envall $PYTHON_EXE -u $BASE_DIR/mpi_train_wrapper.py \
+            --job.config_file $BASE_DIR/torchtitan/models/llama4/train_configs/llama4_large_dense_equivalent_4k_xpu.toml
+        ;;
     *)
         echo "Unknown config: $CONFIG"
         exit 1

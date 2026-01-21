@@ -1,0 +1,55 @@
+# Llama4 Large Dense Equivalent High MFU Benchmark
+# Dense model with same total parameters as MoE.
+# Using Full Activation Checkpointing to fit Batch=4, Seq=2048 (8k Tokens/Rank) in memory.
+# This enables a fair "High MFU" comparison against the Llama 4 MoE (Full AC) run.
+
+[job]
+dump_folder = "./outputs_llama4_large_dense_equivalent_8k"
+description = "Llama 4 Large Dense Equivalent 8k Tokens/Rank Full AC benchmark on XPU"
+
+[profiling]
+enable_profiling = false
+
+[metrics]
+log_freq = 1
+enable_tensorboard = false
+
+[model]
+name = "llama4"
+flavor = "largemodel_dense_equivalent"
+tokenizer_path = "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/tests/assets/tokenizer"
+use_triton_moe = false
+
+[optimizer]
+name = "AdamW"
+lr = 3e-4
+
+[training]
+local_batch_size = 4
+seq_len = 2048
+max_norm = 1.0
+steps = 10
+mixed_precision_param = "bfloat16"
+mixed_precision_reduce = "float32"
+
+dataset = "c4_test"
+dataset_path = "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/tests/assets/c4_test"
+
+[lr_scheduler]
+warmup_steps = 2
+
+[activation_checkpoint]
+# Switch to FULL AC to save memory and allow Batch=4
+mode = "full"
+
+[parallelism]
+data_parallel_replicate_degree = 1
+data_parallel_shard_degree = 12
+tensor_parallel_degree = 1
+expert_parallel_degree = 1
+pipeline_parallel_degree = 1
+
+expert_parallel_comm_backend = "standard"
+
+[compile]
+enable = false

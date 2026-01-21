@@ -1,0 +1,53 @@
+# Llama4 3B MoE (HSDP EP=6) XPU Configuration
+# Throughput comparison for 3B model variant
+
+[job]
+dump_folder = "./outputs_llama4_3b_moe_hsdp_ep6"
+description = "Llama 4 3B MoE (HSDP EP=6) benchmark on XPU"
+
+[profiling]
+enable_profiling = false
+
+[metrics]
+log_freq = 1
+enable_tensorboard = false
+
+[model]
+name = "llama4"
+flavor = "3B_12_rank"
+tokenizer_path = "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/tests/assets/tokenizer"
+use_triton_moe = false
+
+[optimizer]
+name = "AdamW"
+lr = 3e-4
+
+[training]
+local_batch_size = 4
+seq_len = 2048
+max_norm = 1.0
+steps = 10
+mixed_precision_param = "bfloat16"
+mixed_precision_reduce = "float32"
+
+dataset = "c4_test"
+dataset_path = "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/tests/assets/c4_test"
+
+[lr_scheduler]
+warmup_steps = 2
+
+[activation_checkpoint]
+mode = "selective"
+
+[parallelism]
+# DP Repl=2, EP=6 => Total 12 ranks
+data_parallel_replicate_degree = 2
+data_parallel_shard_degree = 6
+tensor_parallel_degree = 1
+expert_parallel_degree = 6
+pipeline_parallel_degree = 1
+
+expert_parallel_comm_backend = "standard"
+
+[compile]
+enable = false

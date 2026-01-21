@@ -178,6 +178,57 @@ llama4_args = {
         attn_type="flex",
         attn_mask_type="block_causal",
     ),
+    "3B_12_rank": TransformerModelArgs(
+        dim=3072,  # Divisible by 12 for FSDP sharding
+        n_layers=28,
+        n_heads=24,
+        n_kv_heads=8,
+        vocab_size=128256,
+        rope_theta=500000,
+        rope_scaling_args=RoPEScalingArgs(),
+        moe_args=MoEArgs(num_experts=12),
+        interleave_moe_layer_step=2,
+    ),
+    "3B_dense_12_rank": TransformerModelArgs(
+        dim=3072,
+        n_layers=28,
+        n_heads=24,
+        n_kv_heads=8,
+        vocab_size=128256,
+        rope_theta=500000,
+        interleave_moe_layer_step=100,  # Effectively disable MoE
+    ),
+    "1B_12_rank": TransformerModelArgs(
+        dim=2048,
+        n_layers=16,
+        n_heads=32,
+        n_kv_heads=8,
+        vocab_size=128256,
+        rope_theta=500000,
+        rope_scaling_args=RoPEScalingArgs(),
+        moe_args=MoEArgs(num_experts=12),
+        interleave_moe_layer_step=2,
+    ),
+    "1B_dense_12_rank": TransformerModelArgs(
+        dim=2048,
+        n_layers=16,
+        n_heads=32,
+        n_kv_heads=8,
+        vocab_size=128256,
+        rope_theta=500000,
+        interleave_moe_layer_step=100,  # Effectively disable MoE
+    ),
+    "3B_total_12_rank": TransformerModelArgs(
+        dim=1536,
+        n_layers=34,
+        n_heads=24,
+        n_kv_heads=8,
+        vocab_size=128256,
+        rope_theta=500000,
+        rope_scaling_args=RoPEScalingArgs(),
+        moe_args=MoEArgs(num_experts=12),
+        interleave_moe_layer_step=2,
+    ),
 }
 
 

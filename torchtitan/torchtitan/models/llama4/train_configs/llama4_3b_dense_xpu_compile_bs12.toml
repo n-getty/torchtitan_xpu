@@ -1,0 +1,52 @@
+# Llama4 3B Dense XPU Compiled Configuration
+# Throughput comparison for 3B model variant
+
+[job]
+dump_folder = "./outputs_llama4_3b_dense_compile"
+description = "Llama 4 3B Dense benchmark on XPU (Compiled)"
+
+[profiling]
+enable_profiling = false
+
+[metrics]
+log_freq = 1
+enable_tensorboard = false
+
+[model]
+name = "llama4"
+flavor = "3B_dense_12_rank"
+tokenizer_path = "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/tests/assets/tokenizer"
+use_triton_moe = false
+
+[optimizer]
+name = "AdamW"
+lr = 3e-4
+
+[training]
+local_batch_size = 12
+seq_len = 2048
+max_norm = 1.0
+steps = 10
+mixed_precision_param = "bfloat16"
+mixed_precision_reduce = "float32"
+
+dataset = "c4_test"
+dataset_path = "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/tests/assets/c4_test"
+
+[lr_scheduler]
+warmup_steps = 2
+
+[activation_checkpoint]
+mode = "selective"
+
+[parallelism]
+data_parallel_replicate_degree = 1
+data_parallel_shard_degree = 12
+tensor_parallel_degree = 1
+expert_parallel_degree = 1
+pipeline_parallel_degree = 1
+
+expert_parallel_comm_backend = "standard"
+
+[compile]
+enable = true
