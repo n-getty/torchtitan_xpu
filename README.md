@@ -59,6 +59,44 @@ The originally low MFU (~1-4%) was caused by **small batch size** resulting in l
 - Use batch sizes that consume ~90%+ of XPU memory for optimal MFU.
 - **MoE is Essential:** A Dense model with equivalent total parameters (~50B) runs at only **26 TPS**, giving MoE a **36x speedup** (935 TPS) due to sparse activation.
 
+---
+
+### Llama 3.2 1B & 3B Optimization Highlights
+
+We performed a deep dive into optimizing Llama 3.2 1B and 3B model variants, leveraging `torch.compile` and high-utilization batch sizes.
+
+#### 1. Llama 3.2 1B Performance
+*Batch=4 (Baseline) -> 16 (Peak), Seq=2048*
+
+| Configuration | Throughput (TPS) | MFU | Memory/Rank | Speedup |
+| :--- | :---: | :---: | :---: | :---: |
+| Dense | 8,953 | 20.15% | 23.6 GB | 1.0x |
+| Dense + Compile | 12,003 | 27.01% | 13.2 GB | +34% |
+| **Dense + Compile (BS=16)** | **14,101** | **31.73%** | **45.9 GB** | **+57%** |
+| MoE (HSDP EP=6) | 5,353 | 12.05% | 26.1 GB | 0.6x |
+| MoE (HSDP) + Compile | 6,302 | 14.18% | 15.9 GB | +17% |
+
+#### 2. Llama 3.2 3B Performance
+*Batch=4 (Baseline) -> 12 (Peak), Seq=2048*
+
+| Model | Configuration | Throughput (TPS) | MFU | Memory/Rank | Speedup |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| 3B | Dense | 3,344 | 23.99% | 41.9 GB | 1.0x |
+| 3B | Dense + Compile | 4,302 | 30.86% | 25.1 GB | +28% |
+| **3B** | **Dense + Compile (BS=12)** | **4,834** | **34.67%** | **59.1 GB** | **+44%** |
+| 3B | MoE (HSDP EP=6) | 1,969 | 14.13% | 47.7 GB | 0.6x |
+| 3B | MoE (HSDP) + Compile | 2,256 | 16.18% | 35.1 GB | +15% |
+
+#### 3. Iso-Parameter Comparison (Dense vs MoE)
+By comparing a **3B Dense** model vs a **3B Total MoE** (smaller dimension, more layers/experts), we show that MoE is ~30% faster for the same storage cost.
+
+| Feature | 3B Dense (Baseline) | 3B MoE (Iso-Param) | Delta |
+| :--- | :---: | :---: | :---: |
+| **Total Params** | ~3.2B | ~3.2B | Match |
+| **Active Params** | ~3.2B | ~1.1B | **-65%** |
+| **Throughput (TPS)** | **4,834** | **6,244** | **+29% Faster** |
+| **Memory** | 59.1 GB | 51.6 GB | -13% |
+
 ### Large Model Benchmark Results (Llama4 ~50B Params)
 
 We benchmarked the **Llama4 Large** model (32 Layers, 4608 Dim, 12 Experts) and a **Dense Equivalent** (same total parameter count) on 12 XPUs to evaluate the impact of Expert Parallelism (EP).
@@ -237,6 +275,11 @@ model = parallelize_module(model, mesh, {"experts": XPUExpertParallel()})
 | `llama4_ep12_triton_xpu.toml` | EP=12 with Triton MoE kernel |
 | `llama4_ep12_fallback_xpu.toml` | EP=12 with PyTorch MoE (no Triton) |
 | `llama4_dense12_xpu.toml` | Dense baseline (MoE disabled) |
+| `llama4_1b_dense_xpu_compile_bs16.toml` | High-utilization 1B Dense config |
+| `llama4_3b_moe_hsdp_ep6_xpu_compile_bs8.toml` | High-utilization 3B HSDP config |
+| `llama4_3b_total_moe_hsdp_ep6_xpu_compile.toml` | Iso-Parameter 3B MoE config |
+| `scripts/run_1b_comparison.sh` | Consolidated 1B benchmark script |
+| `scripts/run_3b_comparison.sh` | Consolidated 3B benchmark script |
 
 ---
 
@@ -275,6 +318,35 @@ python scripts/test_xpu_ep_ops.py
 # Multi-rank test
 mpiexec -n 4 python scripts/test_xpu_ep_ops.py
 ```
+
+---
+
+## Performance Optimization & Best Practices
+
+Based on our benchmarking on Aurora XPU, we recommend the following for maximum performance and stability:
+
+### 1. Enable `torch.compile`
+Compilation is highly effective on XPU:
+- **Throughput**: 15% - 35% speedup.
+- **Memory**: 30% - 40% reduction in footprint.
+- **Stability**: Prevents OOM in memory-intensive MoE configurations (e.g., EP=12).
+*Implementation:* Set `enable = true` in the `[compile]` section of your `.toml` config.
+
+### 2. Maximize Batch Size
+The memory headroom provided by `torch.compile` should be used to increase batch size.
+- Aim for **90%+ XPU memory utilization** to maximize MFU.
+- 1B models can often scale to BS=16 or BS=20; 3B models to BS=12.
+
+### 3. Node Topology & CPU Binding
+Aurora's dual-socket, multi-tile architecture requires careful rank placement.
+- **Recommendation**: Avoid manual `numactl` wrappers (can cause instability).
+- **Correct Method**: Use `mpiexec` affinity lists.
+    ```bash
+    # Example for 12 ranks per node (6 per socket)
+    CPU_BIND="verbose,list:4-7:8-11:12-15:16-19:20-23:24-27:56-59:60-63:64-67:68-71:72-75:76-79"
+    mpiexec ... --cpu-bind=${CPU_BIND} --envall ...
+    ```
+- **Stability**: Correct binding prevents "Out of Resources" errors in high-load MoE runs.
 
 ---
 
