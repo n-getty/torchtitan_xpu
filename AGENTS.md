@@ -6,14 +6,12 @@ This repo optimizes [torchtitan](https://github.com/pytorch/torchtitan) for Inte
 
 ```
 torchtitan_xpu/
-├── expert_parallel_xpu.py    # XPU-compatible EP using all_gather (core contribution)
-├── __init__.py               # Package exports
 ├── scripts/                  # Benchmark launch scripts
 ├── tests/                    # XPU/XCCL compatibility tests
 ├── TESTS.md                  # Test results and benchmark documentation
 ├── torchtitan/               # Upstream torchtitan (with XPU patches)
 │   ├── torchtitan/           # Main library code
-│   │   ├── distributed/      # Parallelism implementations
+│   │   ├── distributed/      # Parallelism & EP (expert_parallel_xpu.py)
 │   │   ├── models/           # Model definitions (llama3, llama4, deepseek_v3)
 │   │   └── train.py          # Training entry point
 │   └── tests/                # Test suite
@@ -87,12 +85,15 @@ mpiexec -n 12 -ppn 12 --envall python -u torchtitan/mpi_train_wrapper.py \
 ## Code Style Guidelines
 
 ### Formatting
+
 - **Formatter**: black (line length 88) + usort for imports
 - **Linter**: flake8 with flake8-bugbear, pep8-naming, torchfix
 - **Type Checker**: pyrefly (configured in pyproject.toml)
 
 ### Imports
+
 Order (enforced by usort): stdlib, third-party, local. Example:
+
 ```python
 # Standard library
 from abc import ABC, abstractmethod
@@ -109,6 +110,7 @@ from torchtitan.distributed.expert_parallel import ExpertParallel
 ```
 
 ### Naming Conventions
+
 - Classes: `PascalCase` (e.g., `XPUExpertParallel`, `BaseExpertParallel`)
 - Functions/methods: `snake_case` (e.g., `_partition_fn`, `_token_dispatch`)
 - Private methods: prefix with `_` (e.g., `_all_gather_dispatch`)
@@ -116,9 +118,11 @@ from torchtitan.distributed.expert_parallel import ExpertParallel
 - Config keys in TOML: `snake_case`
 
 ### Type Annotations
+
 - Required for public APIs, optional for internal/private
 - Use `torch.Tensor` or `Tensor` (imported from torch)
 - Use `Optional[T]` for nullable, `tuple[A, B]` for tuples
+
 ```python
 def _token_dispatch(
     self, mod: nn.Module, inputs: tuple, device_mesh: DeviceMesh
@@ -126,15 +130,19 @@ def _token_dispatch(
 ```
 
 ### Error Handling
+
 - Use assertions for internal invariants with descriptive messages
 - Raise explicit exceptions for user-facing errors
+
 ```python
 assert current_processed == processed_counts[ep_rank], \
     f"Rank {ep_rank} processed mismatch: expected {processed_counts[ep_rank]}, got {current_processed}"
 ```
 
 ### License Headers
+
 All Python files must include the BSD license header (enforced by pre-commit):
+
 ```python
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
@@ -146,6 +154,7 @@ All Python files must include the BSD license header (enforced by pre-commit):
 ## XPU-Specific Patterns
 
 ### Device Detection
+
 ```python
 def is_xpu_available() -> bool:
     try:
@@ -156,14 +165,18 @@ def is_xpu_available() -> bool:
 ```
 
 ### Distributed Backend
+
 **CRITICAL**: Use `xccl` backend, NOT `nccl`:
+
 ```python
 torch.distributed.init_process_group(backend="xccl")
 ```
 
 ### Expert Parallelism
+
 **Status (Feb 2026)**: Native `ExpertParallel` with `all_to_all` now works on XCCL.
 The shape mismatch issue has been fixed in the upstream code.
+
 ```python
 # Default: uses native ExpertParallel (all_to_all-based)
 from torchtitan_xpu import get_expert_parallel_class
@@ -174,7 +187,9 @@ export TORCHTITAN_XPU_FORCE_ALLGATHER_EP=1
 ```
 
 ### FSDP Gradient Reduction
+
 XCCL doesn't support `PREMUL_SUM`. Force `SUM` reduction:
+
 ```python
 # Monkey-patch in parallelize.py
 torch.distributed.fsdp._fully_shard._fsdp_collectives._get_gradient_divide_factors = patched_fn
@@ -182,13 +197,13 @@ torch.distributed.fsdp._fully_shard._fsdp_collectives._get_gradient_divide_facto
 
 ## Key Files to Modify
 
-| Task | File |
-|------|------|
-| Add EP implementation | `expert_parallel_xpu.py` |
-| Model parallelization | `torchtitan/models/<model>/infra/parallelize.py` |
-| New model config | `torchtitan/models/<model>/train_configs/*.toml` |
-| Activation checkpointing | `torchtitan/distributed/activation_checkpoint.py` |
-| Parallel dimensions | `torchtitan/distributed/parallel_dims.py` |
+| Task                     | File                                                       |
+| ------------------------ | ---------------------------------------------------------- |
+| Add EP implementation    | `torchtitan/torchtitan/distributed/expert_parallel_xpu.py` |
+| Model parallelization    | `torchtitan/models/<model>/infra/parallelize.py`           |
+| New model config         | `torchtitan/models/<model>/train_configs/*.toml`           |
+| Activation checkpointing | `torchtitan/distributed/activation_checkpoint.py`          |
+| Parallel dimensions      | `torchtitan/distributed/parallel_dims.py`                  |
 
 ## Known Limitations
 

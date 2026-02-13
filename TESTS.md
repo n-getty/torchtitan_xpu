@@ -6,13 +6,13 @@ Test results from Aurora supercomputer using the **25.190.0 frameworks** (Februa
 
 The test suite consists of standalone scripts that verify XPU and XCCL backend support:
 
-| Test Script | Purpose | Ranks Required |
-|-------------|---------|----------------|
-| `test_all_to_all_support.py` | Tests `all_to_all_single` support | ≥2 |
-| `test_premul_sum_support.py` | Tests `PREMUL_SUM` and alternatives | ≥2 |
-| `test_triton_moe_support.py` | Tests Triton MoE kernel support | 1 |
-| `test_xccl_ops_support.py` | Comprehensive XCCL ops test (17 ops) | ≥2 |
-| `test_native_ep_shape_mismatch.py` | Tests native EP all_to_all shape fix | ≥2 |
+| Test Script                        | Purpose                              | Ranks Required |
+| ---------------------------------- | ------------------------------------ | -------------- |
+| `test_all_to_all_support.py`       | Tests `all_to_all_single` support    | ≥2             |
+| `test_premul_sum_support.py`       | Tests `PREMUL_SUM` and alternatives  | ≥2             |
+| `test_triton_moe_support.py`       | Tests Triton MoE kernel support      | 1              |
+| `test_xccl_ops_support.py`         | Comprehensive XCCL ops test (17 ops) | ≥2             |
+| `test_native_ep_shape_mismatch.py` | Tests native EP all_to_all shape fix | ≥2             |
 
 ## How to Run Tests
 
@@ -65,6 +65,7 @@ PREMUL_SUM:
 ```
 
 **Available Workarounds**:
+
 - `ReduceOp.AVG` - Supported and works correctly
 - Manual scaling: `tensor.mul_(1/world_size)` then `all_reduce(SUM)`
 
@@ -90,25 +91,25 @@ fused_moe_functional: [SUPPORTED] - Executed successfully, output shape: torch.S
 
 ### 4. Comprehensive XCCL Operations: 16/17 Supported
 
-| Operation | Status | Notes |
-|-----------|--------|-------|
-| `broadcast` | ✓ SUPPORTED | |
-| `all_reduce (SUM)` | ✓ SUPPORTED | |
-| `all_reduce (MAX)` | ✓ SUPPORTED | |
-| `all_reduce (MIN)` | ✓ SUPPORTED | |
-| `all_reduce (PRODUCT)` | ✓ SUPPORTED | |
-| `all_reduce (AVG)` | ✓ SUPPORTED | Alternative to PREMUL_SUM |
-| `all_gather` | ✓ SUPPORTED | |
-| `all_gather_into_tensor` | ✓ SUPPORTED | |
-| `reduce_scatter` | ✓ SUPPORTED | |
-| `reduce_scatter_tensor` | ✓ SUPPORTED | |
-| `scatter` | ✓ SUPPORTED | |
-| `gather` | ✓ SUPPORTED | |
-| `all_to_all_single` | ✓ SUPPORTED | Now works! |
-| `send/recv` | ✓ SUPPORTED | Point-to-point |
-| `barrier` | ✓ SUPPORTED | |
-| `all_reduce_coalesced` | ✓ SUPPORTED | Deprecated but works |
-| `PREMUL_SUM` | ✗ NOT SUPPORTED | NCCL-specific API |
+| Operation                | Status          | Notes                     |
+| ------------------------ | --------------- | ------------------------- |
+| `broadcast`              | ✓ SUPPORTED     |                           |
+| `all_reduce (SUM)`       | ✓ SUPPORTED     |                           |
+| `all_reduce (MAX)`       | ✓ SUPPORTED     |                           |
+| `all_reduce (MIN)`       | ✓ SUPPORTED     |                           |
+| `all_reduce (PRODUCT)`   | ✓ SUPPORTED     |                           |
+| `all_reduce (AVG)`       | ✓ SUPPORTED     | Alternative to PREMUL_SUM |
+| `all_gather`             | ✓ SUPPORTED     |                           |
+| `all_gather_into_tensor` | ✓ SUPPORTED     |                           |
+| `reduce_scatter`         | ✓ SUPPORTED     |                           |
+| `reduce_scatter_tensor`  | ✓ SUPPORTED     |                           |
+| `scatter`                | ✓ SUPPORTED     |                           |
+| `gather`                 | ✓ SUPPORTED     |                           |
+| `all_to_all_single`      | ✓ SUPPORTED     | Now works!                |
+| `send/recv`              | ✓ SUPPORTED     | Point-to-point            |
+| `barrier`                | ✓ SUPPORTED     |                           |
+| `all_reduce_coalesced`   | ✓ SUPPORTED     | Deprecated but works      |
+| `PREMUL_SUM`             | ✗ NOT SUPPORTED | NCCL-specific API         |
 
 ---
 
@@ -129,11 +130,11 @@ Device: Intel Data Center GPU Max 1550 (PVC)
 
 ### Current Workarounds vs Native Ops
 
-| Component | Current Workaround | Native Alternative | Status |
-|-----------|-------------------|-------------------|--------|
-| Expert Parallel | `XPUExpertParallel` (all_gather) | `ExpertParallel` (all_to_all) | **Keep workaround** (native has mesh issues in optimizer) |
-| FSDP Gradient Reduction | Force SUM reduction | N/A (PREMUL_SUM unavailable) | **Keep workaround** (required) |
-| Triton MoE | Disabled (`use_triton_moe=false`) | Enable (`use_triton_moe=true`) | **Keep disabled** (2.3x slower) |
+| Component               | Current Workaround                | Native Alternative             | Status                                                    |
+| ----------------------- | --------------------------------- | ------------------------------ | --------------------------------------------------------- |
+| Expert Parallel         | `XPUExpertParallel` (all_gather)  | `ExpertParallel` (all_to_all)  | **Keep workaround** (native has mesh issues in optimizer) |
+| FSDP Gradient Reduction | Force SUM reduction               | N/A (PREMUL_SUM unavailable)   | **Keep workaround** (required)                            |
+| Triton MoE              | Disabled (`use_triton_moe=false`) | Enable (`use_triton_moe=true`) | **Keep disabled** (2.3x slower)                           |
 
 ### Recommendations Based on Benchmarks
 
@@ -158,17 +159,18 @@ Device: Intel Data Center GPU Max 1550 (PVC)
 **Model**: Llama4 1B MoE (EP=12) on single Aurora node (12 XPU tiles)
 **Config**: `llama4_1b_moe_ep12_xpu.toml`, 10 training steps, batch_size=4, seq_len=2048
 
-| Configuration | MFU (%) | Tokens/sec | TFLOPS | Memory (GiB) | Status |
-|--------------|---------|------------|--------|--------------|--------|
-| **Baseline (XPUExpertParallel)** | **9.56%** | **4,246** | **28.50** | ~39 (~61%) | ✓ Current default |
-| Native (ExpertParallel) | N/A | N/A | N/A | N/A | ⚠ Forward works, mesh issue in optimizer |
-| Triton MoE Enabled | 4.21% | 1,870 | 12.55 | ~39 (~61%) | ✓ Works but 2.3x slower |
+| Configuration                    | MFU (%)   | Tokens/sec | TFLOPS    | Memory (GiB) | Status                                   |
+| -------------------------------- | --------- | ---------- | --------- | ------------ | ---------------------------------------- |
+| **Baseline (XPUExpertParallel)** | **9.56%** | **4,246**  | **28.50** | ~39 (~61%)   | ✓ Current default                        |
+| Native (ExpertParallel)          | N/A       | N/A        | N/A       | N/A          | ⚠ Forward works, mesh issue in optimizer |
+| Triton MoE Enabled               | 4.21%     | 1,870      | 12.55     | ~39 (~61%)   | ✓ Works but 2.3x slower                  |
 
 ### Analysis
 
 #### 1. Native ExpertParallel (all_to_all): FIXED ✓
 
 While `all_to_all_single` works at the XCCL collective level, the upstream `ExpertParallel` implementation previously failed with:
+
 ```
 RuntimeError: Split sizes doesn't match total dim 0 size
 ```
@@ -183,6 +185,7 @@ The issue was in `_token_combine()` where the split sizes for the second `all_to
 The upstream code incorrectly used `(output_splits, input_splits)` for both operations.
 
 **Fix Applied** in `torchtitan/torchtitan/distributed/expert_parallel.py`:
+
 ```python
 # In _token_combine():
 routed_output = all_to_all_single_autograd(
@@ -194,9 +197,10 @@ routed_output = all_to_all_single_autograd(
 ```
 
 **Current Status**: The all_to_all shape mismatch is fixed. Forward pass works correctly. However, there's a separate DTensor mesh compatibility issue in the optimizer step that needs further investigation:
+
 ```
-ValueError: Could not run pointwise computation across different mesh: 
-Found DeviceMesh('xpu', [0..11], mesh_dim_names=('fsdp',)) and 
+ValueError: Could not run pointwise computation across different mesh:
+Found DeviceMesh('xpu', [0..11], mesh_dim_names=('fsdp',)) and
 DeviceMesh('xpu', [[0..11]], mesh_dim_names=('efsdp', 'ep'))!
 ```
 
@@ -205,10 +209,12 @@ DeviceMesh('xpu', [[0..11]], mesh_dim_names=('efsdp', 'ep'))!
 #### 2. Triton MoE: Works but Slower
 
 Triton MoE kernels compile and execute correctly on XPU, but are **2.3x slower** than the default PyTorch implementation:
+
 - MFU drops from 9.56% → 4.21%
 - TPS drops from 4,246 → 1,870
 
 Possible reasons:
+
 - Debug prints in the Triton kernel code (visible in output)
 - Kernel not optimized for Intel XPU architecture
 - JIT compilation overhead
@@ -218,6 +224,7 @@ Possible reasons:
 #### 3. Baseline Configuration: Best Performance
 
 The current configuration using `XPUExpertParallel` (all_gather-based) provides the best performance:
+
 - MFU: 9.56%
 - Tokens/sec: 4,246
 - Memory utilization: ~61%
@@ -235,13 +242,13 @@ Activation Checkpointing (AC) causes unbounded memory growth when combined with 
 
 ### Comprehensive Test Results (Feb 9, 2026)
 
-| Configuration | AC Mode | AC Option | Steps | Peak Memory | Status |
-|--------------|---------|-----------|-------|-------------|--------|
-| EP=12 + No AC + Compile | none | N/A | 10/10 | 27.4 GiB stable | ✅ SUCCESS |
-| EP=12 + Selective (layer) + Compile | selective | "2" (default) | 7+/10 | 57+ GiB | ❌ OOM/Hung |
-| EP=12 + Selective (op) + Compile | selective | "op" | 5-7/10 | ~60 GiB | ❌ OOM |
-| EP=12 + Full AC + Compile | full | N/A | 8/10 | ~61 GiB | ❌ OOM |
-| EP=12 + Selective (op) + No Compile | selective | "op" | 5/10 | ~57 GiB | ❌ OOM |
+| Configuration                       | AC Mode   | AC Option     | Steps  | Peak Memory     | Status      |
+| ----------------------------------- | --------- | ------------- | ------ | --------------- | ----------- |
+| EP=12 + No AC + Compile             | none      | N/A           | 10/10  | 27.4 GiB stable | ✅ SUCCESS  |
+| EP=12 + Selective (layer) + Compile | selective | "2" (default) | 7+/10  | 57+ GiB         | ❌ OOM/Hung |
+| EP=12 + Selective (op) + Compile    | selective | "op"          | 5-7/10 | ~60 GiB         | ❌ OOM      |
+| EP=12 + Full AC + Compile           | full      | N/A           | 8/10   | ~61 GiB         | ❌ OOM      |
+| EP=12 + Selective (op) + No Compile | selective | "op"          | 5/10   | ~57 GiB         | ❌ OOM      |
 
 ### Key Finding: Layer-based AC Also Fails
 
@@ -282,18 +289,19 @@ enable = true  # Recommended - provides memory efficiency
 ```
 
 **CRITICAL**: Do NOT use any of these with EP:
+
 - `mode = "full"` - FAILS
-- `mode = "selective"` with default option "2" - FAILS  
+- `mode = "selective"` with default option "2" - FAILS
 - `mode = "selective"` with `selective_ac_option = "op"` - FAILS
 
 ### Working Benchmark Results
 
 **Model**: Llama4 1B MoE (EP=12), Compiled, No AC
 
-| Step | Memory | TPS | MFU |
-|------|--------|-----|-----|
-| 1 | 13.2 GiB | 116 | 0.26% (warmup) |
-| 2-10 | 22-27 GiB stable | 640-660 | 1.44-1.49% |
+| Step | Memory           | TPS     | MFU            |
+| ---- | ---------------- | ------- | -------------- |
+| 1    | 13.2 GiB         | 116     | 0.26% (warmup) |
+| 2-10 | 22-27 GiB stable | 640-660 | 1.44-1.49%     |
 
 **Final**: 10/10 steps, ~27 GiB (43%), 640 TPS, 1.44% MFU
 
@@ -314,18 +322,18 @@ See [TEST_PLAN_AC_EP.md](./TEST_PLAN_AC_EP.md) for the full test matrix and deta
 
 ## Summary of EP Best Practices
 
-| Setting | Value | Reason |
-|---------|-------|--------|
-| `activation_checkpoint.mode` | `"none"` | AC causes memory leaks with EP |
-| `compile.enable` | `true` | Provides memory efficiency, 15-35% speedup |
-| `model.use_triton_moe` | `false` | Triton kernel 2.3x slower on XPU |
-| Native `ExpertParallel` | Default | Now works with XCCL all_to_all |
-| FSDP gradient patch | Applied | PREMUL_SUM not available |
+| Setting                      | Value    | Reason                                     |
+| ---------------------------- | -------- | ------------------------------------------ |
+| `activation_checkpoint.mode` | `"none"` | AC causes memory leaks with EP             |
+| `compile.enable`             | `true`   | Provides memory efficiency, 15-35% speedup |
+| `model.use_triton_moe`       | `false`  | Triton kernel 2.3x slower on XPU           |
+| Native `ExpertParallel`      | Default  | Now works with XCCL all_to_all             |
+| FSDP gradient patch          | Applied  | PREMUL_SUM not available                   |
 
 ---
 
 ## References
 
 - [AGENTS.md](./AGENTS.md) - Development guide for torchtitan_xpu
-- [expert_parallel_xpu.py](./expert_parallel_xpu.py) - XPU-compatible EP implementation
+- [expert_parallel_xpu.py](./torchtitan/torchtitan/distributed/expert_parallel_xpu.py) - XPU-compatible EP implementation
 - [torchtitan/distributed/expert_parallel.py](./torchtitan/torchtitan/distributed/expert_parallel.py) - Upstream EP implementation
