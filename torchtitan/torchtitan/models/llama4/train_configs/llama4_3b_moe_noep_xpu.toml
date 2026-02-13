@@ -15,7 +15,7 @@ enable_tensorboard = false
 [model]
 name = "llama4"
 flavor = "3B_12_rank"
-tokenizer_path = "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/tests/assets/tokenizer"
+hf_assets_path = "/lus/flare/projects/AuroraGPT/ngetty/torchtitan_xpu/torchtitan/tests/assets/tokenizer"
 use_triton_moe = false
 
 [optimizer]
@@ -31,7 +31,7 @@ mixed_precision_param = "bfloat16"
 mixed_precision_reduce = "float32"
 
 dataset = "c4_test"
-dataset_path = "/home/ngetty/proj/vllm_gpt-oss/Aurora-Inferencing/torchtitan_xpu/torchtitan/tests/assets/c4_test"
+dataset_path = "/lus/flare/projects/AuroraGPT/ngetty/torchtitan_xpu/torchtitan/tests/assets/c4_test"
 
 [lr_scheduler]
 warmup_steps = 2

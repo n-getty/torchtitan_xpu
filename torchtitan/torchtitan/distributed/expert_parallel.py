@@ -4,8 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-print("[EP MODULE LOAD] Loading expert_parallel.py from:", __file__)
-
 from abc import ABC, abstractmethod
 
 import torch
@@ -31,20 +29,19 @@ from torchtitan.models.moe.utils import _permute, _unpermute
 
 class BaseExpertParallel(ParallelStyle, ABC):
     @abstractmethod
-    def _partition_fn(self, name: str, mod: nn.Module, device_mesh: DeviceMesh) -> None:
-        ...
+    def _partition_fn(
+        self, name: str, mod: nn.Module, device_mesh: DeviceMesh
+    ) -> None: ...
 
     @abstractmethod
     def _token_dispatch(
         self, mod: nn.Module, inputs: tuple, device_mesh: DeviceMesh
-    ) -> tuple[Tensor, Tensor]:
-        ...
+    ) -> tuple[Tensor, Tensor]: ...
 
     @abstractmethod
     def _token_combine(
         self, mod: nn.Module, routed_output: Tensor, device_mesh: DeviceMesh
-    ) -> Tensor:
-        ...
+    ) -> Tensor: ...
 
 
 # implementation of Tensor Parallel for the GroupedExperts in MoE
@@ -144,13 +141,6 @@ class ExpertParallel(BaseExpertParallel):
             device_mesh.get_group(),
         )
 
-        # Debug: trace token counts through dispatch
-        import torch.distributed as dist
-        rank = dist.get_rank() if dist.is_initialized() else 0
-        print(f"[EP DEBUG RANK {rank}] _token_dispatch: input_splits={self.input_splits}, output_splits={self.output_splits}", flush=True)
-        print(f"[EP DEBUG RANK {rank}] _token_dispatch: sum(input_splits)={sum(self.input_splits)}, sum(output_splits)={sum(self.output_splits)}, routed_input.shape={routed_input.shape}", flush=True)
-
-
         # NOTE: After this all-to-all, the routed input is put on proper EP rank.
         # However, the num_tokens_per_expert_group is not of the final target format
         # [#tokens for local expert 0, #tokens for local expert 1, ...]
@@ -177,37 +167,28 @@ class ExpertParallel(BaseExpertParallel):
     def _token_combine(
         self, mod: nn.Module, routed_output: Tensor, device_mesh: DeviceMesh
     ) -> Tensor:
-        # Debug: trace token flow through combine
-        import torch.distributed as dist
-        import sys
-        rank = dist.get_rank() if dist.is_initialized() else 0
-        print(f"[EP DEBUG RANK {rank}] _token_combine START: routed_output.shape={routed_output.shape}", flush=True)
-        print(f"[EP DEBUG RANK {rank}] _token_combine: input_splits={self.input_splits}, output_splits={self.output_splits}", flush=True)
-
         routed_output = _unpermute(
             routed_output, self.input_shape, self.permuted_indices
         )
-        print(f"[EP DEBUG RANK {rank}] _token_combine after _unpermute: routed_output.shape={routed_output.shape}", flush=True)
 
-        # FIX: Swap splits to restore original token count
-        # In dispatch: all_to_all(input, output_splits, input_splits) gives sum(output_splits) tokens
-        # In combine: all_to_all(output, output_splits, input_splits) should give sum(input_splits) tokens (original)
+        # Reverse the dispatch all_to_all:
+        # In dispatch: all_to_all(input, output_splits, input_splits)
+        #   - Sent input_splits[i] tokens TO rank i
+        #   - Received output_splits[i] tokens FROM rank i
+        # In combine: we need to reverse this
+        #   - Send output_splits[i] tokens TO rank i (what we received from them)
+        #   - Receive input_splits[i] tokens FROM rank i (what we sent to them)
+        # So the call is: all_to_all(output, input_splits, output_splits)
         routed_output = all_to_all_single_autograd(
             routed_output,
-            self.output_splits,  # send partitions: what we have after unpermute
-            self.input_splits,   # receive partitions: restore to original count
+            self.input_splits,  # receive partitions: what we originally sent
+            self.output_splits,  # send partitions: what we currently have (received in dispatch)
             device_mesh.get_group(),
         )
-        print(f"[EP DEBUG RANK {rank}] _token_combine after all_to_all: routed_output.shape={routed_output.shape}", flush=True)
         return routed_output
 
-
     def _apply(self, module: nn.Module, device_mesh: DeviceMesh) -> nn.Module:
-        import torch.distributed as dist
-        rank = dist.get_rank() if dist.is_initialized() else 0
-        print(f"[EP DEBUG RANK {rank}] ExpertParallel._apply called for module={module.__class__.__name__}", flush=True)
-        print(f"[EP DEBUG RANK {rank}] _apply: registering input_fn=_token_dispatch, output_fn=_token_combine", flush=True)
-        result = distribute_module(
+        return distribute_module(
             module,
             device_mesh,
             partition_fn=self._partition_fn,
@@ -216,8 +197,6 @@ class ExpertParallel(BaseExpertParallel):
             # pyrefly: ignore [bad-argument-type]
             output_fn=self._token_combine,
         )
-        print(f"[EP DEBUG RANK {rank}] _apply: distribute_module returned, hooks registered on {result.__class__.__name__}", flush=True)
-        return result
 
 
 # This class is for dp2ep with TP (without TP we can just use ExpertParallel)

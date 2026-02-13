@@ -84,9 +84,18 @@ def dist_mean(
     mesh: DeviceMesh | None = None,
     extra_pg: dist.ProcessGroup | None = None,
 ) -> float:
-    return _dist_reduce(
-        x, reduceOp=c10d.ReduceOp.AVG.name, mesh=mesh, extra_pg=extra_pg
+    # XCCL doesn't support AVG reduce operation.
+    # Implement as SUM followed by division by world size.
+    world_size = 1
+    if extra_pg is not None:
+        world_size *= extra_pg.size()
+    if mesh is not None:
+        world_size *= mesh.size()
+
+    sum_result = _dist_reduce(
+        x, reduceOp=c10d.ReduceOp.SUM.name, mesh=mesh, extra_pg=extra_pg
     )
+    return sum_result / world_size
 
 
 def set_determinism(
@@ -146,7 +155,6 @@ def set_determinism(
         print(f"Rank {dist.get_rank()} using hardcoded seed (bypass xccl broadcast)")
         seed = 42  # Hardcoded deterministic seed for all ranks
     print(f"Rank {dist.get_rank()} seed: {seed}")
-
 
     # Set distinct seed for each rank in mesh dimensions, with dimension names provided by `distinct_seed_mesh_dims`
     # For PP + SPMD cases, we want to separate the world into the SPMD mesh and the PP mesh,
@@ -355,7 +363,9 @@ def init_distributed(
 
     # Skip initialization if already done (e.g., by MPI wrapper)
     if torch.distributed.is_initialized():
-        logger.info("torch.distributed already initialized, skipping init_process_group")
+        logger.info(
+            "torch.distributed already initialized, skipping init_process_group"
+        )
         return torch.distributed.get_world_size()
 
     try:
@@ -371,7 +381,6 @@ def init_distributed(
         )
 
     return torch.distributed.get_world_size()
-
 
 
 def set_pg_timeouts(
@@ -529,9 +538,7 @@ def _clip_grad_norm_with_ep(
     if math.isinf(norm_type):
         total_norm = torch.maximum(ep_grads_total_norm, non_ep_grads_total_norm)
     else:
-        total_norm = (
-            ep_grads_total_norm**norm_type + non_ep_grads_total_norm**norm_type
-        )
+        total_norm = ep_grads_total_norm**norm_type + non_ep_grads_total_norm**norm_type
         total_norm **= 1.0 / norm_type
 
     if pp_mesh is not None:

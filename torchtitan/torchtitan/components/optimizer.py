@@ -26,6 +26,7 @@ from torchtitan.distributed import ParallelDims
 
 __all__ = [
     "OptimizersContainer",
+    "MeshAwareOptimizersContainer",
     "build_optimizers",
     "build_optimizers_with_moe_load_balancing",
 ]
@@ -129,6 +130,72 @@ class OptimizersContainer(Optimizer, Stateful, Generic[T]):
         # We need to call Optimizer.__init__() to initialize some necessary optimizer
         # functionality such as hooks.
         Optimizer.__init__(self, all_params, optimizer_kwargs)
+
+
+class MeshAwareOptimizersContainer(OptimizersContainer[T]):
+    """OptimizersContainer that groups parameters by DeviceMesh.
+
+    When Expert Parallel is enabled, expert parameters live on a different
+    DeviceMesh (efsdp, ep) than dense parameters (fsdp). Fused optimizers
+    batch all parameters together for pointwise operations, but DTensor
+    rejects operations across different meshes.
+
+    This container solves the problem by:
+    1. Grouping parameters by their DeviceMesh (based on mesh_dim_names)
+    2. Creating a separate optimizer for each mesh group
+    3. Allowing fused optimization within each group
+
+    This preserves the performance benefits of fused Adam while maintaining
+    DTensor compatibility.
+    """
+
+    def __init__(
+        self,
+        model_parts: list[nn.Module],
+        optimizer_cls: type[T],
+        optimizer_kwargs: dict[str, Any],
+    ) -> None:
+        from collections import defaultdict
+
+        all_params = []
+        self.optimizers = []
+        self.model_parts = model_parts
+        self._mesh_group_names: list[str] = []  # For debugging/logging
+
+        for model in self.model_parts:
+            # Group parameters by their device mesh
+            mesh_groups: dict[tuple[str, ...], list[nn.Parameter]] = defaultdict(list)
+
+            for p in model.parameters():
+                if not p.requires_grad:
+                    continue
+                all_params.append(p)
+
+                # Determine mesh key from DTensor or use "local" for regular tensors
+                if isinstance(p, torch.distributed.tensor.DTensor):
+                    mesh_key = tuple(p.device_mesh.mesh_dim_names or ())
+                else:
+                    mesh_key = ("local",)
+
+                mesh_groups[mesh_key].append(p)
+
+            # Create one optimizer per mesh group
+            for mesh_key, params in sorted(mesh_groups.items()):
+                if params:
+                    self.optimizers.append(optimizer_cls(params, **optimizer_kwargs))
+                    self._mesh_group_names.append(str(mesh_key))
+
+        # Log the mesh grouping for debugging
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info(
+            f"MeshAwareOptimizersContainer created {len(self.optimizers)} optimizer(s) "
+            f"for mesh groups: {self._mesh_group_names}"
+        )
+
+        # Skip the normal validation since we have different grouping logic
+        self._post_init(all_params, optimizer_kwargs)
 
 
 class OptimizersInBackwardContainer(OptimizersContainer):
@@ -298,6 +365,14 @@ def build_optimizers(
     fused = optim_implementation == "fused"
     foreach = optim_implementation == "foreach"
 
+    # When Expert Parallel is enabled with native all_to_all, expert parameters
+    # live on a different DeviceMesh (efsdp, ep) than dense parameters (fsdp).
+    # Fused Adam batches all parameters together and tries pointwise operations
+    # across different meshes, which DTensor rejects.
+    # Solution: Use MeshAwareOptimizersContainer which groups parameters by mesh
+    # and creates separate optimizers, preserving fused optimization within groups.
+    use_mesh_aware_optimizer = parallel_dims.ep_enabled
+
     optimizer_kwargs = {
         "lr": lr,
         "betas": (beta1, beta2),
@@ -327,6 +402,12 @@ def build_optimizers(
             optimizer_kwargs,
             ft_manager.manager,
             use_ft_optimizer=ft_manager.use_async_quorum,
+        )
+
+    # Use MeshAwareOptimizersContainer for EP to handle different DeviceMeshes
+    if use_mesh_aware_optimizer:
+        return MeshAwareOptimizersContainer(
+            model_parts, optimizer_cls, optimizer_kwargs
         )
 
     return OptimizersContainer(model_parts, optimizer_cls, optimizer_kwargs)
